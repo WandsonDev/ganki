@@ -1,22 +1,18 @@
 name: ganki
-description: A Dart library to programmatically create and manage Anki decks (.apkg). Compatible with Dart CLI and Flutter (mobile & desktop).
-version: 1.0.0
+description: A Dart/Flutter library for programmatically generating Anki decks (.apkg files). Port of the Python genanki library.
+version: 2.0.0
 homepage: https://github.com/WandsonDev/ganki
-repository: https://github.com/WandsonDev/ganki
-documentation: https://github.com/WandsonDev/ganki#readme
-issue_tracker: https://github.com/WandsonDev/ganki/issues
-publish_to: "https://pub.dev"
 
 environment:
-  sdk: ">=3.0.0 <4.0.0"
+  sdk: '>=3.0.0 <4.0.0'
 
 dependencies:
   archive: ^3.6.1
-  crypto: ^3.0.3
+  sqflite_common_ffi: ^2.3.3
   mustache_template: ^2.0.0
+  crypto: ^3.0.3
   path: ^1.9.0
-  sqlite3: ^2.1.0
 
 dev_dependencies:
-  lints: ^3.0.0
-  test: ^1.24.0
+  lints: ^4.0.0
+  test: ^1.25.0

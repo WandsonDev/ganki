@@ -1,123 +1,128 @@
-import 'dart:convert';
 import 'dart:io';
-import 'package:path/path.dart' as p;
+import 'dart:convert';
 import 'package:archive/archive_io.dart';
-import 'package:sqlite3/sqlite3.dart';
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:path/path.dart' as path;
+import 'deck.dart';
+import 'schema.dart';
 
-import 'constants.dart';
-import 'domain.dart';
-import 'utils.dart';
-
-class AnkiPackage {
-  final Deck deck;
+/// Represents an Anki package (.apkg file)
+class Package {
+  final List<Deck> decks;
   final List<String> mediaFiles;
+  static bool _initialized = false;
 
-  AnkiPackage({required this.deck, this.mediaFiles = const []});
+  Package(dynamic deckOrDecks, {List<String>? mediaFiles})
+      : decks = deckOrDecks is Deck ? [deckOrDecks] : deckOrDecks as List<Deck>,
+        mediaFiles = mediaFiles ?? [];
 
-  /// Gera o arquivo .apkg no caminho especificado.
-  void writeToFile(String filename) {
-    // 1. Criar DB em memória
-    final db = sqlite3.openInMemory();
+  /// Initialize sqflite_ffi (call once at app start)
+  static void initialize() {
+    if (!_initialized) {
+      sqfliteFfiInit();
+      databaseFactory = databaseFactoryFfi;
+      _initialized = true;
+    }
+  }
+
+  /// Write package to .apkg file
+  Future<void> writeToFile(String filePath, {double? timestamp}) async {
+    initialize(); // Auto-initialize if not done
+
+    timestamp ??= DateTime.now().millisecondsSinceEpoch / 1000.0;
+
+    // Create temporary database file
+    final tempDir = await Directory.systemTemp.createTemp('ganki_');
+    final dbPath = path.join(tempDir.path, 'collection.anki2');
 
     try {
-      db.execute(sqlSchema);
-      final ts = GankiUtils.timestamp();
+      // Create and populate database
+      final db = await databaseFactoryFfi.openDatabase(dbPath);
 
-      // 2. Preparar Models e Decks
-      final modelsMap = <String, dynamic>{};
-      for (var note in deck.notes) {
-        modelsMap[note.model.id.toString()] = note.model.toJson(ts, deck.id);
+      try {
+        await _writeToDb(db, timestamp);
+      } finally {
+        await db.close();
       }
 
-      final decksMap = {
-        deck.id.toString(): deck.toJson()
-      };
+      // Create zip archive
+      final archive = Archive();
 
-      db.execute(
-        'UPDATE col SET models = ?, decks = ? WHERE id = 1',
-        [jsonEncode(modelsMap), jsonEncode(decksMap)],
-      );
+      // Add database file
+      final dbFile = File(dbPath);
+      final dbBytes = await dbFile.readAsBytes();
+      archive.addFile(ArchiveFile('collection.anki2', dbBytes.length, dbBytes));
 
-      // 3. Inserir Notas e Cards
-      final stmtNote = db.prepare('INSERT INTO notes VALUES(?,?,?,?,?,?,?,?,?,?,?)');
-      final stmtCard = db.prepare('INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)');
-
-      int idGen = GankiUtils.nowMs();
-
-      for (var note in deck.notes) {
-        final noteId = idGen++;
-        final fieldStr = note.fields.join('\x1f');
-        final tagStr = note.tags.isNotEmpty ? ' ${note.tags.join(' ')} ' : '';
-
-        stmtNote.execute([
-          noteId,
-          note.guid,
-          note.model.id,
-          ts,
-          -1,
-          tagStr,
-          fieldStr,
-          note.fields.isNotEmpty ? note.fields[0] : '',
-          0, // csum (not critical)
-          0,
-          ''
-        ]);
-
-        for (var card in note.cards) {
-          stmtCard.execute([
-            idGen++,
-            noteId,
-            deck.id,
-            card.ord,
-            ts,
-            -1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, ''
-          ]);
-        }
-      }
-      stmtNote.dispose();
-      stmtCard.dispose();
-
-      // 4. Compactar (Zip)
-      final encoder = ZipFileEncoder();
-      encoder.create(filename);
-
-      // Fazer backup do DB da memória para um arquivo temporário
-      // O formato Anki requer que o arquivo se chame 'collection.anki2' dentro do zip
-      final tmpDir = Directory.systemTemp.createTempSync('ganki_');
-      final tmpDbPath = p.join(tmpDir.path, 'collection.anki2');
-      
-      final fileDb = sqlite3.open(tmpDbPath);
-      db.backup(fileDb);
-      fileDb.dispose(); // Fecha para liberar o lock
-
-      encoder.addFile(File(tmpDbPath), 'collection.anki2');
-
-      // Adicionar Mídia
-      final mediaMap = <String, String>{};
+      // Add media files
+      final Map<int, String> mediaJson = {};
       for (var i = 0; i < mediaFiles.length; i++) {
-        var file = File(mediaFiles[i]);
-        if (file.existsSync()) {
-          var name = p.basename(mediaFiles[i]);
-          mediaMap[i.toString()] = name;
-          encoder.addFile(file, i.toString());
-        } else {
-            print('Warning: Media file not found: ${mediaFiles[i]}');
+        final mediaPath = mediaFiles[i];
+        final mediaFile = File(mediaPath);
+
+        if (await mediaFile.exists()) {
+          final mediaBytes = await mediaFile.readAsBytes();
+          final mediaBasename = path.basename(mediaPath);
+
+          mediaJson[i] = mediaBasename;
+          archive.addFile(
+              ArchiveFile(i.toString(), mediaBytes.length, mediaBytes));
         }
       }
 
-      encoder.addArchiveFile(
-        ArchiveFile('media', mediaMap.toString().length, utf8.encode(jsonEncode(mediaMap)))
-      );
+      // Add media JSON
+      final mediaJsonStr = json.encode(mediaJson);
+      final mediaJsonBytes = utf8.encode(mediaJsonStr);
+      archive
+          .addFile(ArchiveFile('media', mediaJsonBytes.length, mediaJsonBytes));
 
-      encoder.close();
-
-      // Limpeza
-      if (tmpDir.existsSync()) {
-        tmpDir.deleteSync(recursive: true);
-      }
-
+      // Write archive to file
+      final encoder = ZipEncoder();
+      final outputFile = File(filePath);
+      final outputStream = OutputFileStream(filePath);
+      encoder.encode(archive, output: outputStream);
+      await outputStream.close();
     } finally {
-      db.dispose();
+      // Clean up temporary directory
+      await tempDir.delete(recursive: true);
     }
+  }
+
+  /// Write decks to database
+  Future<void> _writeToDb(Database db, double timestamp) async {
+    // Create schema - split into individual statements
+    final schemaStatements =
+        apkgSchema.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty);
+
+    for (final statement in schemaStatements) {
+      await db.execute('$statement;');
+    }
+
+    // Insert initial data - split into individual statements
+    final colStatements =
+        apkgCol.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty);
+
+    for (final statement in colStatements) {
+      if (statement.isNotEmpty) {
+        await db.execute('$statement;');
+      }
+    }
+
+    // ID generator
+    int currentId = (timestamp * 1000).toInt();
+    int idGen() => currentId++;
+
+    // Write each deck
+    for (final deck in decks) {
+      await deck.writeToDb(
+        db: db,
+        timestamp: timestamp,
+        idGen: idGen,
+      );
+    }
+  }
+
+  @override
+  String toString() {
+    return 'Package(deckCount: ${decks.length}, mediaCount: ${mediaFiles.length})';
   }
 }

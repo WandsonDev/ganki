@@ -1,6 +1,12 @@
+/// A Dart/Flutter library for programmatically generating Anki decks.
+///
+/// Port of the Python genanki library to Dart/Flutter.
 library ganki;
 
-export 'src/constants.dart';
-export 'src/domain.dart';
+export 'src/model.dart';
+export 'src/note.dart';
+export 'src/card.dart';
+export 'src/deck.dart';
 export 'src/package.dart';
-export 'src/utils.dart';
+export 'src/util.dart';
+export 'src/builtin_models.dart';
