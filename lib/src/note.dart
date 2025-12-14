@@ -1,4 +1,3 @@
-import 'package:mustache_template/mustache.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'model.dart';
 import 'card.dart';
@@ -22,9 +21,9 @@ class Note {
     List<String>? tags,
     String? guid,
     this.due = 0,
-  }) : tags = tags ?? [],
-       _sortField = sortField,
-       _guid = guid;
+  })  : tags = tags ?? [],
+        _sortField = sortField,
+        _guid = guid;
 
   /// Get or compute the sort field
   String get sortField {
@@ -61,7 +60,7 @@ class Note {
   List<Card> _generateClozeCards() {
     final Set<int> cardOrds = {};
     final template = model.templates[0];
-    
+
     // Find cloze fields in template
     final clozePattern = RegExp(r'{{[^}]*?cloze:(?:[^}]?:)*(.+?)}}');
     final clozeReplacements = clozePattern
@@ -71,13 +70,12 @@ class Note {
 
     // Find cloze references in field values
     for (final fieldName in clozeReplacements) {
-      final fieldIndex = model.fields
-          .indexWhere((f) => f['name'] == fieldName);
-      
+      final fieldIndex = model.fields.indexWhere((f) => f['name'] == fieldName);
+
       if (fieldIndex >= 0 && fieldIndex < fields.length) {
         final fieldValue = fields[fieldIndex];
         final clozeNumPattern = RegExp(r'{{c(\d+)::.+?}}', dotAll: true);
-        
+
         for (final match in clozeNumPattern.allMatches(fieldValue)) {
           final num = int.tryParse(match.group(1)!);
           if (num != null && num > 0) {
@@ -97,7 +95,7 @@ class Note {
   /// Generate cards for front/back note type
   List<Card> _generateFrontBackCards() {
     final List<Card> cards = [];
-    
+
     for (final reqItem in model.req) {
       final cardOrd = reqItem[0] as int;
       final anyOrAll = reqItem[1] as String;
@@ -105,11 +103,11 @@ class Note {
 
       final bool shouldCreate;
       if (anyOrAll == 'any') {
-        shouldCreate = requiredFieldOrds.any((ord) => 
-          ord < fields.length && fields[ord].isNotEmpty);
+        shouldCreate = requiredFieldOrds
+            .any((ord) => ord < fields.length && fields[ord].isNotEmpty);
       } else {
-        shouldCreate = requiredFieldOrds.every((ord) => 
-          ord < fields.length && fields[ord].isNotEmpty);
+        shouldCreate = requiredFieldOrds
+            .every((ord) => ord < fields.length && fields[ord].isNotEmpty);
       }
 
       if (shouldCreate) {
@@ -130,8 +128,8 @@ class Note {
     // Validate field count
     if (fields.length != model.fields.length) {
       throw Exception(
-        'Number of fields (${fields.length}) does not match model '
-        '(${model.fields.length})');
+          'Number of fields (${fields.length}) does not match model '
+          '(${model.fields.length})');
     }
 
     // Insert note
@@ -177,6 +175,6 @@ class Note {
   @override
   String toString() {
     return 'Note(model: ${model.name}, fields: $fields, '
-           'sortField: $sortField, tags: $tags, guid: $guid)';
+        'sortField: $sortField, tags: $tags, guid: $guid)';
   }
 }

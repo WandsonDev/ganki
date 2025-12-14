@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'dart:math';
 import 'package:ganki/ganki.dart';
 
@@ -366,25 +365,6 @@ Future<void> mathFormulas(int Function() generateId) async {
 /// Example 4: Import from JSON file
 Future<void> importFromJson(int Function() generateId) async {
   print('Creating deck from JSON data...');
-
-  // Simulate JSON data (in real use, read from file)
-  final jsonData = '''
-  {
-    "deckName": "English Vocabulary",
-    "cards": [
-      {
-        "word": "Serendipity",
-        "definition": "The occurrence of events by chance in a happy way",
-        "example": "Finding this library was pure serendipity"
-      },
-      {
-        "word": "Ephemeral",
-        "definition": "Lasting for a very short time",
-        "example": "The beauty of cherry blossoms is ephemeral"
-      }
-    ]
-  }
-  ''';
 
   // Parse would happen here - simplified for example
   final deck = Deck(

@@ -1,8 +1,10 @@
-import 'dart:io';
 import 'dart:convert';
+import 'dart:io';
+
 import 'package:archive/archive_io.dart';
-import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:path/path.dart' as path;
+import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
 import 'deck.dart';
 import 'schema.dart';
 
@@ -10,10 +12,15 @@ import 'schema.dart';
 class Package {
   final List<Deck> decks;
   final List<String> mediaFiles;
+
   static bool _initialized = false;
 
-  Package(dynamic deckOrDecks, {List<String>? mediaFiles})
-      : decks = deckOrDecks is Deck ? [deckOrDecks] : deckOrDecks as List<Deck>,
+  Package(
+    dynamic deckOrDecks, {
+    List<String>? mediaFiles,
+  })  : decks = deckOrDecks is Deck
+            ? [deckOrDecks]
+            : deckOrDecks as List<Deck>,
         mediaFiles = mediaFiles ?? [];
 
   /// Initialize sqflite_ffi (call once at app start)
@@ -26,7 +33,10 @@ class Package {
   }
 
   /// Write package to .apkg file
-  Future<void> writeToFile(String filePath, {double? timestamp}) async {
+  Future<void> writeToFile(
+    String filePath, {
+    double? timestamp,
+  }) async {
     initialize(); // Auto-initialize if not done
 
     timestamp ??= DateTime.now().millisecondsSinceEpoch / 1000.0;
@@ -49,9 +59,10 @@ class Package {
       final archive = Archive();
 
       // Add database file
-      final dbFile = File(dbPath);
-      final dbBytes = await dbFile.readAsBytes();
-      archive.addFile(ArchiveFile('collection.anki2', dbBytes.length, dbBytes));
+      final dbBytes = await File(dbPath).readAsBytes();
+      archive.addFile(
+        ArchiveFile('collection.anki2', dbBytes.length, dbBytes),
+      );
 
       // Add media files
       final Map<int, String> mediaJson = {};
@@ -65,19 +76,19 @@ class Package {
 
           mediaJson[i] = mediaBasename;
           archive.addFile(
-              ArchiveFile(i.toString(), mediaBytes.length, mediaBytes));
+            ArchiveFile(i.toString(), mediaBytes.length, mediaBytes),
+          );
         }
       }
 
       // Add media JSON
-      final mediaJsonStr = json.encode(mediaJson);
-      final mediaJsonBytes = utf8.encode(mediaJsonStr);
-      archive
-          .addFile(ArchiveFile('media', mediaJsonBytes.length, mediaJsonBytes));
+      final mediaJsonBytes = utf8.encode(json.encode(mediaJson));
+      archive.addFile(
+        ArchiveFile('media', mediaJsonBytes.length, mediaJsonBytes),
+      );
 
       // Write archive to file
       final encoder = ZipEncoder();
-      final outputFile = File(filePath);
       final outputStream = OutputFileStream(filePath);
       encoder.encode(archive, output: outputStream);
       await outputStream.close();
@@ -89,7 +100,7 @@ class Package {
 
   /// Write decks to database
   Future<void> _writeToDb(Database db, double timestamp) async {
-    // Create schema - split into individual statements
+    // Create schema
     final schemaStatements =
         apkgSchema.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty);
 
@@ -97,14 +108,12 @@ class Package {
       await db.execute('$statement;');
     }
 
-    // Insert initial data - split into individual statements
+    // Insert initial data
     final colStatements =
         apkgCol.split(';').map((s) => s.trim()).where((s) => s.isNotEmpty);
 
     for (final statement in colStatements) {
-      if (statement.isNotEmpty) {
-        await db.execute('$statement;');
-      }
+      await db.execute('$statement;');
     }
 
     // ID generator

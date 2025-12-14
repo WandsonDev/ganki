@@ -20,28 +20,28 @@ class Card {
     int due = 0,
   }) async {
     final queue = suspend ? -1 : 0;
-    
+
     await db.rawInsert('''
       INSERT INTO cards VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);
     ''', [
-      idGen(),              // id
-      noteId,               // nid
-      deckId,               // did
-      ord,                  // ord
-      timestamp.toInt(),    // mod
-      -1,                   // usn
-      0,                    // type (=0 for non-Cloze)
-      queue,                // queue
-      due,                  // due
-      0,                    // ivl
-      0,                    // factor
-      0,                    // reps
-      0,                    // lapses
-      0,                    // left
-      0,                    // odue
-      0,                    // odid
-      0,                    // flags
-      '',                   // data
+      idGen(), // id
+      noteId, // nid
+      deckId, // did
+      ord, // ord
+      timestamp.toInt(), // mod
+      -1, // usn
+      0, // type (=0 for non-Cloze)
+      queue, // queue
+      due, // due
+      0, // ivl
+      0, // factor
+      0, // reps
+      0, // lapses
+      0, // left
+      0, // odue
+      0, // odid
+      0, // flags
+      '', // data
     ]);
   }
 

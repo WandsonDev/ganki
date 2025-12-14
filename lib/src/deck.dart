@@ -1,5 +1,7 @@
 import 'dart:convert';
+
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+
 import 'model.dart';
 import 'note.dart';
 
@@ -8,6 +10,7 @@ class Deck {
   final int deckId;
   final String name;
   final String description;
+
   final List<Note> notes = [];
   final Map<int, Model> _models = {};
 
@@ -49,19 +52,29 @@ class Deck {
     required double timestamp,
     required int Function() idGen,
   }) async {
-    // Validate deck properties
-    if (deckId is! int) {
-      throw TypeError();
+    // Value validation (not type validation)
+    if (deckId <= 0) {
+      throw ArgumentError.value(
+        deckId,
+        'deckId',
+        'Must be a positive integer',
+      );
     }
-    if (name is! String) {
-      throw TypeError();
+
+    if (name.trim().isEmpty) {
+      throw ArgumentError.value(
+        name,
+        'name',
+        'Must not be empty',
+      );
     }
 
     // Update decks in col table
-    final List<Map<String, dynamic>> decksResult =
-        await db.rawQuery('SELECT decks FROM col');
-    final String decksJsonStr = decksResult.first['decks'] as String;
-    final Map<String, dynamic> decks = json.decode(decksJsonStr);
+    final decksResult = await db.rawQuery('SELECT decks FROM col');
+    final decksJsonStr = decksResult.first['decks'] as String;
+    final Map<String, dynamic> decks =
+        json.decode(decksJsonStr) as Map<String, dynamic>;
+
     decks[deckId.toString()] = toJson();
 
     await db.rawUpdate(
@@ -70,10 +83,10 @@ class Deck {
     );
 
     // Update models in col table
-    final List<Map<String, dynamic>> modelsResult =
-        await db.rawQuery('SELECT models FROM col');
-    final String modelsJsonStr = modelsResult.first['models'] as String;
-    final Map<String, dynamic> models = json.decode(modelsJsonStr);
+    final modelsResult = await db.rawQuery('SELECT models FROM col');
+    final modelsJsonStr = modelsResult.first['models'] as String;
+    final Map<String, dynamic> models =
+        json.decode(modelsJsonStr) as Map<String, dynamic>;
 
     for (final model in _models.values) {
       models[model.modelId.toString()] = model.toJson(timestamp, deckId);
