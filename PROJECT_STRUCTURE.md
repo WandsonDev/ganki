@@ -93,7 +93,7 @@ Arquivo principal que exporta todas as classes públicas da biblioteca.
 ```yaml
 # pubspec.yaml
 dependencies:
-  ganki: ^1.0.0
+  ganki: ^2.0.0
 ```
 
 ### 2. Importar

@@ -249,7 +249,7 @@ Seu `pubspec.yaml` deve ter:
 
 ```yaml
 dependencies:
-  ganki: ^1.0.0
+  ganki: ^2.0.0
 
 environment:
   sdk: '>=3.0.0 <4.0.0'
